@@ -1,0 +1,61 @@
+# Environment files
+.env
+*.env
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Data directories
+data/
+postgres-data/
+redis-data/
+prometheus-data/
+grafana-data/
+
+# Backups
+backups/
+*.sql
+*.tar.gz
+*.gz
+*.bak
+
+# SSL Certificates
+certbot/conf/*
+certbot/www/*
+!certbot/.gitkeep
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Docker
+docker-compose.override.yml
+*.pid
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Claude AI artifacts
+.claude/

@@ -1,0 +1,117 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  # ─── Detect Changes ───────────────────────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      nginx: ${{ steps.filter.outputs.nginx }}
+      databases: ${{ steps.filter.outputs.databases }}
+      monitoring: ${{ steps.filter.outputs.monitoring }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            nginx:
+              - 'nginx/**'
+            databases:
+              - 'databases/**'
+            monitoring:
+              - 'monitoring/**'
+
+  # ─── Deploy to Mac Mini Server ────────────────────────────────────────────
+  deploy:
+    needs: changes
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      (needs.changes.outputs.nginx == 'true' ||
+       needs.changes.outputs.databases == 'true' ||
+       needs.changes.outputs.monitoring == 'true')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTH_KEY }}
+          tags: tag:ci
+
+      - name: Deploy infrastructure to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+
+            INFRA_DIR="${HOME}/prod/infrastructure"
+
+            # Create directory if it doesn't exist
+            mkdir -p "$INFRA_DIR"
+            cd "$INFRA_DIR"
+
+            # Pull latest changes
+            if [ -d ".git" ]; then
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              git clone ${{ github.server_url }}/${{ github.repository }}.git .
+            fi
+
+            # Initialize environment files if they don't exist
+            chmod +x scripts/*.sh
+            ./scripts/init-env.sh
+
+            # Deploy changed services
+            if [ "${{ needs.changes.outputs.databases }}" = "true" ]; then
+              echo "📦 Deploying databases..."
+              cd databases
+              docker compose pull
+              docker compose up -d
+              cd ..
+            fi
+
+            if [ "${{ needs.changes.outputs.monitoring }}" = "true" ]; then
+              echo "📊 Deploying monitoring..."
+              cd monitoring
+              docker compose pull
+              docker compose up -d
+              cd ..
+            fi
+
+            if [ "${{ needs.changes.outputs.nginx }}" = "true" ]; then
+              echo "🌐 Deploying nginx..."
+              cd nginx
+              docker compose pull
+              docker compose up -d
+              cd ..
+            fi
+
+            # Health check
+            echo "🏥 Running health checks..."
+            ./scripts/health-check.sh
+
+            # Cleanup
+            docker system prune -f
+
+            echo "✅ Deployment complete!"
+
+      - name: Deployment status notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Infrastructure deployment successful!"
+          else
+            echo "❌ Infrastructure deployment failed!"
+          fi
