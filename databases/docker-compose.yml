@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_HOST_BINDING:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -18,24 +18,95 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
 
   redis:
     image: redis:7-alpine
     container_name: infra_redis
     restart: unless-stopped
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: >
+      sh -c "redis-server /usr/local/etc/redis/redis.conf
+      --requirepass $${REDIS_PASSWORD:-changeme}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_HOST_BINDING:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
       - infra_network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "redis-cli -a $${REDIS_PASSWORD:-changeme} ping | grep PONG",
+        ]
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  # PostgreSQL Exporter - exposes PostgreSQL metrics for Prometheus
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: infra_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/postgres?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - infra_network
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          cpus: "0.1"
+          memory: 32M
+
+  # Redis Exporter - exposes Redis metrics for Prometheus
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: infra_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme}
+    ports:
+      - "9121:9121"
+    networks:
+      - infra_network
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+        reservations:
+          cpus: "0.1"
+          memory: 32M
 
 volumes:
   postgres_data:
@@ -47,3 +118,4 @@ networks:
   infra_network:
     name: infra_network
     driver: bridge
+    external: true

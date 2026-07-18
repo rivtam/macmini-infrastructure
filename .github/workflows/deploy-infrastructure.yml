@@ -56,10 +56,19 @@ jobs:
             set -e
 
             INFRA_DIR="${HOME}/prod/infrastructure"
+            BACKUP_TAG="pre-deploy-$(date +%Y%m%d-%H%M%S)"
 
             # Create directory if it doesn't exist
             mkdir -p "$INFRA_DIR"
             cd "$INFRA_DIR"
+
+            # Tag current state for potential rollback
+            if [ -d ".git" ]; then
+              CURRENT_COMMIT=$(git rev-parse HEAD)
+              echo "📌 Current commit: $CURRENT_COMMIT"
+              git tag -f "$BACKUP_TAG" "$CURRENT_COMMIT"
+              echo "✅ Created backup tag: $BACKUP_TAG"
+            fi
 
             # Pull latest changes
             if [ -d ".git" ]; then
@@ -69,16 +78,40 @@ jobs:
               git clone ${{ github.server_url }}/${{ github.repository }}.git .
             fi
 
+            NEW_COMMIT=$(git rev-parse HEAD)
+            echo "🚀 Deploying commit: $NEW_COMMIT"
+
             # Initialize environment files if they don't exist
             chmod +x scripts/*.sh
             ./scripts/init-env.sh
 
-            # Deploy changed services
+            # Function to rollback on failure
+            rollback() {
+              echo "❌ Deployment failed! Rolling back..."
+              git reset --hard "$BACKUP_TAG"
+              ./scripts/init-env.sh
+
+              # Restart services with old version
+              if [ "${{ needs.changes.outputs.databases }}" = "true" ]; then
+                cd databases && docker compose up -d --force-recreate && cd ..
+              fi
+              if [ "${{ needs.changes.outputs.monitoring }}" = "true" ]; then
+                cd monitoring && docker compose up -d --force-recreate && cd ..
+              fi
+              if [ "${{ needs.changes.outputs.nginx }}" = "true" ]; then
+                cd nginx && docker compose up -d --force-recreate && cd ..
+              fi
+
+              exit 1
+            }
+
+            # Deploy changed services with rollback on failure
             if [ "${{ needs.changes.outputs.databases }}" = "true" ]; then
               echo "📦 Deploying databases..."
               cd databases
               docker compose pull
-              docker compose up -d
+              docker compose up -d || { cd ..; rollback; }
+              sleep 10
               cd ..
             fi
 
@@ -86,26 +119,39 @@ jobs:
               echo "📊 Deploying monitoring..."
               cd monitoring
               docker compose pull
-              docker compose up -d
+              docker compose up -d || { cd ..; rollback; }
+              sleep 10
               cd ..
             fi
 
             if [ "${{ needs.changes.outputs.nginx }}" = "true" ]; then
               echo "🌐 Deploying nginx..."
               cd nginx
+              # Test nginx config before deploying
+              docker compose --profile test run --rm nginx-test || { rollback; }
               docker compose pull
-              docker compose up -d
+              docker compose up -d || { rollback; }
+              sleep 5
               cd ..
             fi
 
-            # Health check
+            # Health check with rollback on failure
             echo "🏥 Running health checks..."
-            ./scripts/health-check.sh
+            if ! ./scripts/health-check.sh; then
+              echo "❌ Health checks failed!"
+              rollback
+            fi
 
-            # Cleanup
+            # Cleanup old Docker resources
             docker system prune -f
 
+            # Remove old backup tags (keep last 5)
+            git tag -l "pre-deploy-*" | sort -r | tail -n +6 | xargs -r git tag -d
+
             echo "✅ Deployment complete!"
+            echo "   Previous version: $CURRENT_COMMIT"
+            echo "   Current version: $NEW_COMMIT"
+            echo "   Backup tag: $BACKUP_TAG"
 
       - name: Deployment status notification
         if: always()

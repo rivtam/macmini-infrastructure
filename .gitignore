@@ -24,6 +24,12 @@ backups/
 *.gz
 *.bak
 
+# Vault secrets - NEVER COMMIT!
+vault-init-keys.json
+vault-tokens.env
+vault/data/*
+!vault/data/.gitkeep
+
 # SSL Certificates
 certbot/conf/*
 certbot/www/*

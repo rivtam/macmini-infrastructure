@@ -15,11 +15,27 @@ services:
     networks:
       - infra_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/healthz"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/healthz",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
 
   # Service to test nginx config before deployment
   nginx-test:
@@ -34,3 +50,4 @@ networks:
   infra_network:
     name: infra_network
     driver: bridge
+    external: true

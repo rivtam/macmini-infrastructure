@@ -67,6 +67,62 @@ curl http://localhost/healthz
 
 SSL certificates are managed by certbot and mounted from `../certbot/conf/`.
 
+## Frontend Static Files
+
+### Option 1: Mount from Host (Development/Small Apps)
+
+Mount your built frontend files directly into nginx:
+
+```yaml
+# nginx/docker-compose.yml
+services:
+  nginx:
+    volumes:
+      - /path/to/your/app/dist:/usr/share/nginx/html/myapp:ro
+```
+
+### Option 2: Build Custom Nginx Image (Production)
+
+Create a Dockerfile that includes your frontend:
+
+```dockerfile
+# In your application repo
+FROM nginx:alpine
+COPY dist/ /usr/share/nginx/html/myapp/
+COPY nginx.conf /etc/nginx/nginx.conf
+```
+
+Then reference this image in your app's docker-compose:
+
+```yaml
+services:
+  myapp-nginx:
+    build: ./frontend
+    networks:
+      - infra_network
+```
+
+### Option 3: Shared Volume (Multi-Stage)
+
+Build frontend in CI/CD and copy to shared volume:
+
+```yaml
+# In your app's docker-compose.yml
+services:
+  frontend-builder:
+    image: node:18
+    volumes:
+      - frontend-dist:/app/dist
+    command: sh -c "npm ci && npm run build"
+
+volumes:
+  frontend-dist:
+```
+
+Then mount this volume in the infrastructure nginx.
+
+**Recommended Approach:** Option 2 for production (self-contained), Option 1 for development.
+
 ## Local Development
 
 For local development without SSL:
@@ -84,3 +140,5 @@ For local development without SSL:
    NGINX_HTTP_PORT=8080
    NGINX_HTTPS_PORT=8443
    ```
+
+4. Mount your frontend build directory (see Frontend Static Files above)

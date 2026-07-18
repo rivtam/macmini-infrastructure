@@ -24,6 +24,9 @@ make health      # Check service health
 | **[GETTING_STARTED.md](GETTING_STARTED.md)** | Step-by-step setup guide |
 | **[INFRASTRUCTURE_OVERVIEW.md](INFRASTRUCTURE_OVERVIEW.md)** | Architecture and concepts |
 | **[TEST_LOCALLY.md](TEST_LOCALLY.md)** | Complete testing scenarios |
+| **[SECURITY.md](SECURITY.md)** | Security best practices and configuration |
+| **[BACKUP_RESTORE.md](BACKUP_RESTORE.md)** | Comprehensive backup and restore guide |
+| **[LOGGING_SECRETS.md](LOGGING_SECRETS.md)** | Loki logging and Vault secrets management |
 
 ### Service-Specific Docs
 - [nginx/README.md](nginx/README.md) - Nginx configuration

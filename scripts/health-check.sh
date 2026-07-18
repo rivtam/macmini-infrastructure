@@ -62,5 +62,25 @@ check_service "Node Exporter" "infra_node_exporter" \
 check_service "cAdvisor" "infra_cadvisor" \
     "curl -f http://localhost:8080/healthz"
 
+# Check Alertmanager
+check_service "Alertmanager" "infra_alertmanager" \
+    "curl -f http://localhost:9093/-/healthy"
+
+# Check PostgreSQL Exporter
+check_service "Postgres Exporter" "infra_postgres_exporter" \
+    "curl -f http://localhost:9187/metrics"
+
+# Check Redis Exporter
+check_service "Redis Exporter" "infra_redis_exporter" \
+    "curl -f http://localhost:9121/metrics"
+
+# Check Loki
+check_service "Loki" "infra_loki" \
+    "curl -f http://localhost:3100/ready"
+
+# Check Promtail
+check_service "Promtail" "infra_promtail" \
+    "curl -f http://localhost:9080/ready"
+
 echo ""
 echo "Health check complete!"
