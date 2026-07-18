@@ -55,6 +55,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/dashboards/json:/etc/grafana/provisioning/dashboards/json:ro
     networks:
       - infra_network
     depends_on:

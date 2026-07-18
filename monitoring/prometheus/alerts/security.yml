@@ -1,0 +1,58 @@
+groups:
+  - name: security_alerts
+    interval: 5m
+    rules:
+      # High rate of failed authentication attempts
+      - alert: HighFailedAuthRate
+        expr: rate({job="syslog"} |= "Failed password" [5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of failed authentication attempts"
+          description: "More than 30 failed auth attempts per minute detected"
+
+      # Suspicious HTTP status codes
+      - alert: HighHttp4xxRate
+        expr: sum(rate({job="nginx", log_type="access", status=~"4.."} [5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of 4xx HTTP errors"
+          description: "More than 10 4xx errors per second"
+
+      # Potential scanning activity
+      - alert: PotentialPortScan
+        expr: rate({job="nginx", status="404"} [2m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Potential port scanning detected"
+          description: "High rate of 404 errors may indicate scanning"
+
+      # SQL injection attempts
+      - alert: PotentialSQLInjection
+        expr: count_over_time({job="nginx"} |~ "(?i)(union.*select|select.*from|insert.*into|delete.*from)" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Potential SQL injection attempt detected"
+          description: "SQL injection patterns detected in logs"
+
+      # XSS attempts
+      - alert: PotentialXSS
+        expr: count_over_time({job="nginx"} |~ "(?i)(<script|javascript:|onerror=)" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Potential XSS attempt detected"
+          description: "XSS patterns detected in logs"

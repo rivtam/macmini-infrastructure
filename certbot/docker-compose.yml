@@ -1,0 +1,46 @@
+services:
+  certbot:
+    image: certbot/certbot:latest
+    container_name: infra_certbot
+    restart: "no"  # Run manually or via cron
+    volumes:
+      - ./conf:/etc/letsencrypt
+      - ./www:/var/www/certbot
+      - ./logs:/var/log/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
+    networks:
+      - infra_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+
+  # Certificate renewal monitoring
+  certbot-exporter:
+    image: ghcr.io/ribbybibby/ssl-exporter:latest
+    container_name: infra_certbot_exporter
+    restart: unless-stopped
+    command:
+      - --tls.insecure=true
+      - --tls.cacert=/etc/ssl/certs/ca-certificates.crt
+    ports:
+      - "9219:9219"
+    networks:
+      - infra_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+        reservations:
+          cpus: "0.05"
+          memory: 16M
+
+networks:
+  infra_network:
+    name: infra_network
+    external: true

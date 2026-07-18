@@ -1,0 +1,70 @@
+[DEFAULT]
+# Ban settings
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+# Action configuration
+banaction = iptables-multiport
+banaction_allports = iptables-allports
+
+# Email notifications (optional)
+#destemail = admin@yourdomain.com
+#sendername = Fail2Ban
+#action = %(action_mwl)s
+
+[sshd]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 24h
+
+[nginx-http-auth]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/error.log
+maxretry = 3
+
+[nginx-noscript]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/access.log
+maxretry = 6
+
+[nginx-badbots]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/access.log
+maxretry = 2
+
+[nginx-noproxy]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/access.log
+maxretry = 2
+
+[nginx-limit-req]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/error.log
+maxretry = 10
+
+# Custom: Rate limiting
+[nginx-req-limit]
+enabled = true
+filter = nginx-req-limit
+port = http,https
+logpath = /var/log/nginx/error.log
+findtime = 1m
+bantime = 1h
+maxretry = 20
+
+# Custom: 404 errors
+[nginx-404]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/access.log
+maxretry = 20
+findtime = 2m
+bantime = 10m

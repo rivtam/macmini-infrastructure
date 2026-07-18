@@ -1,0 +1,113 @@
+groups:
+  - name: audit_alerts
+    interval: 5m
+    rules:
+      # Excessive failed logins
+      - alert: ExcessiveFailedLogins
+        expr: count_over_time({log_type="auth_audit"} |= "Failed" [10m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: audit
+        annotations:
+          summary: "Excessive failed login attempts detected"
+          description: "More than 10 failed login attempts in 10 minutes"
+
+      # Privileged database operations
+      - alert: PrivilegedDatabaseOperation
+        expr: count_over_time({job="postgres", log_type="audit", query_type=~"DROP|ALTER"} [1h]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          category: audit
+        annotations:
+          summary: "Multiple privileged database operations"
+          description: "More than 5 DROP/ALTER operations in 1 hour"
+
+      # Unauthorized admin access attempt
+      - alert: UnauthorizedAdminAccess
+        expr: rate({job="nginx", path=~"/admin.*", status=~"401|403"} [5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: audit
+        annotations:
+          summary: "Unauthorized admin access attempts"
+          description: "Failed authentication on admin endpoints"
+
+      # Vault access anomaly
+      - alert: VaultAccessAnomaly
+        expr: rate({job="vault", log_type="audit", response_status!=""} [10m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: audit
+        annotations:
+          summary: "Vault access errors detected"
+          description: "High rate of failed Vault operations"
+
+      # Mass data deletion
+      - alert: MassDataDeletion
+        expr: count_over_time({job="postgres", log_type="audit", query_type="DELETE"} [5m]) > 100
+        for: 1m
+        labels:
+          severity: critical
+          category: audit
+        annotations:
+          summary: "Mass data deletion detected"
+          description: "More than 100 DELETE operations in 5 minutes"
+
+      # User privilege escalation
+      - alert: PrivilegeEscalation
+        expr: count_over_time({job="postgres", log_type="audit", query_type="ALTER"} |~ "GRANT|ROLE" [10m]) > 3
+        for: 1m
+        labels:
+          severity: critical
+          category: audit
+        annotations:
+          summary: "Potential privilege escalation detected"
+          description: "Multiple GRANT/ROLE changes detected"
+
+      # After-hours access
+      - alert: AfterHoursAccess
+        expr: count_over_time({log_type="auth_audit"} [1h] offset 0h) > 0 and hour() < 6 or hour() > 22
+        for: 5m
+        labels:
+          severity: info
+          category: audit
+        annotations:
+          summary: "After-hours system access"
+          description: "System accessed outside business hours (before 6am or after 10pm)"
+
+      # Suspicious query patterns
+      - alert: SuspiciousQueryPattern
+        expr: rate({job="postgres", log_type="audit"} |~ "(?i)(sleep|benchmark|waitfor)" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: audit
+        annotations:
+          summary: "Suspicious SQL query patterns detected"
+          description: "Queries contain potential time-based attack patterns"
+
+      # Configuration changes
+      - alert: ConfigurationChange
+        expr: count_over_time({job="vault", log_type="audit", request_path=~".*/config/.*"} [10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          category: audit
+        annotations:
+          summary: "System configuration modified"
+          description: "Changes detected in system configuration"
+
+      # Audit log processing delay
+      - alert: AuditLogDelay
+        expr: time() - timestamp(loki_up{job="audit-processor"}) > 300
+        for: 5m
+        labels:
+          severity: warning
+          category: audit
+        annotations:
+          summary: "Audit log processing delayed"
+          description: "Audit logs have not been processed in over 5 minutes"
