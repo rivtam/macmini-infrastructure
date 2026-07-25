@@ -257,11 +257,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TS_AUTH_KEY }}
-          tags: tag:ci
+      # Tailscale disabled - using direct SSH via edu-hub.duckdns.org
+      # - name: Setup Tailscale
+      #   uses: tailscale/github-action@v2
+      #   with:
+      #     authkey: ${{ secrets.TS_AUTH_KEY }}
+      #     tags: tag:ci
 
       - name: Deploy to Mac Mini
         uses: appleboy/ssh-action@v1
