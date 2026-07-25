@@ -694,10 +694,6 @@ jobs:
 
             # Deploy monitoring services if changed
             if [ "$CHANGED_MONITORING" = "true" ]; then
-              # Pull all monitoring images first
-              cd monitoring
-              docker compose pull
-
               # Deploy services individually with health checks
               deploy_service "prometheus" "monitoring"
               deploy_service "grafana" "monitoring"
@@ -706,6 +702,8 @@ jobs:
               deploy_service "alertmanager" "monitoring"
 
               # Deploy remaining services without custom images
+              echo "🚀 Deploying remaining monitoring services..."
+              cd monitoring
               docker compose up -d node-exporter cadvisor
               cd ..
             fi
