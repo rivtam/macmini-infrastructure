@@ -190,7 +190,7 @@ services:
     volumes:
       - /var/log:/var/log:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ../nginx/logs:/var/log/nginx:ro
+      - ../nginx/logs:/mnt/nginx-logs:ro
     networks:
       - infra_network
     depends_on:
