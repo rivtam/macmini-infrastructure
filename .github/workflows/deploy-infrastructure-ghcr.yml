@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       nginx: ${{ steps.filter.outputs.nginx }}
+      certbot: ${{ steps.filter.outputs.certbot }}
       databases: ${{ steps.filter.outputs.databases }}
       monitoring: ${{ steps.filter.outputs.monitoring }}
       grafana: ${{ steps.filter.outputs.grafana }}
@@ -33,6 +34,8 @@ jobs:
           filters: |
             nginx:
               - 'nginx/**'
+            certbot:
+              - 'certbot/**'
             databases:
               - 'databases/**'
             monitoring:
@@ -553,12 +556,14 @@ jobs:
             # Deploy changed services
             FORCE_DEPLOY="${{ github.event.inputs.force_deploy_all }}"
             CHANGED_NGINX="${{ needs.changes.outputs.nginx }}"
+            CHANGED_CERTBOT="${{ needs.changes.outputs.certbot }}"
             CHANGED_DATABASES="${{ needs.changes.outputs.databases }}"
             CHANGED_MONITORING="${{ needs.changes.outputs.monitoring }}"
 
             if [ "$FORCE_DEPLOY" = "true" ]; then
               echo "🚀 Force deploy enabled - deploying all services"
               CHANGED_NGINX="true"
+              CHANGED_CERTBOT="true"
               CHANGED_DATABASES="true"
               CHANGED_MONITORING="true"
             fi
@@ -566,6 +571,14 @@ jobs:
             # Deploy nginx if changed
             if [ "$CHANGED_NGINX" = "true" ]; then
               deploy_service "nginx" "nginx"
+            fi
+
+            # Deploy certbot if changed
+            if [ "$CHANGED_CERTBOT" = "true" ]; then
+              echo "🔐 Deploying Let's Encrypt certbot..."
+              cd certbot
+              docker compose up -d
+              cd ..
             fi
 
             # Deploy databases if changed (only restart, no custom images)
