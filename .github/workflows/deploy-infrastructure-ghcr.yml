@@ -1,0 +1,420 @@
+name: Build and Deploy Infrastructure (GHCR)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      force_deploy_all:
+        description: 'Force deploy all services (ignore change detection)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # ─── Detect Changes ───────────────────────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      nginx: ${{ steps.filter.outputs.nginx }}
+      databases: ${{ steps.filter.outputs.databases }}
+      monitoring: ${{ steps.filter.outputs.monitoring }}
+      grafana: ${{ steps.filter.outputs.grafana }}
+      prometheus: ${{ steps.filter.outputs.prometheus }}
+      loki: ${{ steps.filter.outputs.loki }}
+      promtail: ${{ steps.filter.outputs.promtail }}
+      alertmanager: ${{ steps.filter.outputs.alertmanager }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            nginx:
+              - 'nginx/**'
+            databases:
+              - 'databases/**'
+            monitoring:
+              - 'monitoring/**'
+            grafana:
+              - 'monitoring/grafana/**'
+            prometheus:
+              - 'monitoring/prometheus/**'
+            loki:
+              - 'monitoring/loki/**'
+            promtail:
+              - 'monitoring/promtail/**'
+            alertmanager:
+              - 'monitoring/alertmanager/**'
+
+  # ─── Build Nginx ──────────────────────────────────────────────────────────
+  build-nginx:
+    needs: changes
+    if: |
+      github.event.inputs.force_deploy_all == 'true' ||
+      needs.changes.outputs.nginx == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push nginx image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./nginx
+          push: true
+          no-cache: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/infra-nginx:latest
+            ghcr.io/${{ github.repository_owner }}/infra-nginx:${{ github.sha }}
+
+  # ─── Build Grafana ────────────────────────────────────────────────────────
+  build-grafana:
+    needs: changes
+    if: |
+      github.event.inputs.force_deploy_all == 'true' ||
+      needs.changes.outputs.grafana == 'true' ||
+      needs.changes.outputs.monitoring == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Grafana image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./monitoring
+          file: ./monitoring/grafana/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/infra-grafana:latest
+            ghcr.io/${{ github.repository_owner }}/infra-grafana:${{ github.sha }}
+
+  # ─── Build Prometheus ─────────────────────────────────────────────────────
+  build-prometheus:
+    needs: changes
+    if: |
+      github.event.inputs.force_deploy_all == 'true' ||
+      needs.changes.outputs.prometheus == 'true' ||
+      needs.changes.outputs.monitoring == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Prometheus image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./monitoring
+          file: ./monitoring/prometheus/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/infra-prometheus:latest
+            ghcr.io/${{ github.repository_owner }}/infra-prometheus:${{ github.sha }}
+
+  # ─── Build Loki ───────────────────────────────────────────────────────────
+  build-loki:
+    needs: changes
+    if: |
+      github.event.inputs.force_deploy_all == 'true' ||
+      needs.changes.outputs.loki == 'true' ||
+      needs.changes.outputs.monitoring == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Loki image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./monitoring
+          file: ./monitoring/loki/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/infra-loki:latest
+            ghcr.io/${{ github.repository_owner }}/infra-loki:${{ github.sha }}
+
+  # ─── Build Promtail ───────────────────────────────────────────────────────
+  build-promtail:
+    needs: changes
+    if: |
+      github.event.inputs.force_deploy_all == 'true' ||
+      needs.changes.outputs.promtail == 'true' ||
+      needs.changes.outputs.monitoring == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Promtail image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./monitoring
+          file: ./monitoring/promtail/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/infra-promtail:latest
+            ghcr.io/${{ github.repository_owner }}/infra-promtail:${{ github.sha }}
+
+  # ─── Build Alertmanager ───────────────────────────────────────────────────
+  build-alertmanager:
+    needs: changes
+    if: |
+      github.event.inputs.force_deploy_all == 'true' ||
+      needs.changes.outputs.alertmanager == 'true' ||
+      needs.changes.outputs.monitoring == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Alertmanager image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./monitoring
+          file: ./monitoring/alertmanager/Dockerfile
+          push: true
+          no-cache: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/infra-alertmanager:latest
+            ghcr.io/${{ github.repository_owner }}/infra-alertmanager:${{ github.sha }}
+
+  # ─── Deploy ───────────────────────────────────────────────────────────────
+  deploy:
+    needs: [changes, build-nginx, build-grafana, build-prometheus, build-loki, build-promtail, build-alertmanager]
+    if: |
+      always() &&
+      (needs.build-nginx.result == 'success' || needs.build-nginx.result == 'skipped') &&
+      (needs.build-grafana.result == 'success' || needs.build-grafana.result == 'skipped') &&
+      (needs.build-prometheus.result == 'success' || needs.build-prometheus.result == 'skipped') &&
+      (needs.build-loki.result == 'success' || needs.build-loki.result == 'skipped') &&
+      (needs.build-promtail.result == 'success' || needs.build-promtail.result == 'skipped') &&
+      (needs.build-alertmanager.result == 'success' || needs.build-alertmanager.result == 'skipped') &&
+      (github.event.inputs.force_deploy_all == 'true' ||
+       needs.changes.outputs.nginx == 'true' ||
+       needs.changes.outputs.databases == 'true' ||
+       needs.changes.outputs.monitoring == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTH_KEY }}
+          tags: tag:ci
+
+      - name: Deploy to Mac Mini
+        uses: appleboy/ssh-action@v1
+        with:
+          request_pty: true
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            cd ~/prod/infrastructure
+
+            # Login to GHCR with read-only token
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
+            # Create backup tag for rollback
+            BACKUP_TAG="pre-deploy-$(date +%Y%m%d-%H%M%S)"
+            echo "📌 Creating backup tag: $BACKUP_TAG"
+
+            # Function to deploy a service
+            deploy_service() {
+              SERVICE=$1
+              SERVICE_DIR=$2
+              CONTAINER_PREFIX="infra_"
+
+              echo "🚀 Deploying $SERVICE..."
+
+              # Store current image for rollback
+              CONTAINER_NAME="${CONTAINER_PREFIX}${SERVICE}"
+              CURRENT_IMAGE=$(docker inspect --format='{{.Image}}' "$CONTAINER_NAME" 2>/dev/null || echo "none")
+
+              # Pull new image
+              cd "$SERVICE_DIR"
+              docker compose pull "$SERVICE" 2>/dev/null || true
+
+              # Deploy with health check
+              docker compose up -d --no-deps --force-recreate "$SERVICE"
+
+              # Wait for health check
+              echo "⏳ Waiting for $SERVICE health check..."
+              RETRIES=0
+              MAX_RETRIES=30
+              until [ $RETRIES -eq $MAX_RETRIES ] || [ "$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$CONTAINER_NAME" 2>/dev/null)" = "healthy" ]; do
+                sleep 2
+                RETRIES=$((RETRIES+1))
+                STATUS=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$CONTAINER_NAME" 2>/dev/null || echo "missing")
+
+                # For services without healthcheck, check if running
+                if [ "$STATUS" = "no-healthcheck" ]; then
+                  if [ "$(docker inspect --format='{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null)" = "true" ]; then
+                    echo "✅ $SERVICE is running (no healthcheck configured)"
+                    cd ~/prod/infrastructure
+                    return 0
+                  fi
+                fi
+
+                echo "  Attempt $RETRIES/$MAX_RETRIES... status=$STATUS"
+              done
+
+              # Check if healthy
+              FINAL_STATUS=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$CONTAINER_NAME" 2>/dev/null || echo "missing")
+
+              if [ "$FINAL_STATUS" != "healthy" ] && [ "$FINAL_STATUS" != "no-healthcheck" ]; then
+                echo "❌ $SERVICE failed health check!"
+                echo "📋 Container logs:"
+                docker logs --tail=50 "$CONTAINER_NAME" || true
+
+                # Rollback
+                if [ "$CURRENT_IMAGE" != "none" ]; then
+                  echo "🔄 Rolling back $SERVICE..."
+                  docker stop "$CONTAINER_NAME" || true
+                  docker rm "$CONTAINER_NAME" || true
+                  docker run -d --name "$CONTAINER_NAME" "$CURRENT_IMAGE" || true
+                fi
+
+                cd ~/prod/infrastructure
+                exit 1
+              fi
+
+              echo "✅ $SERVICE deployed successfully!"
+              cd ~/prod/infrastructure
+            }
+
+            # Deploy changed services
+            FORCE_DEPLOY="${{ github.event.inputs.force_deploy_all }}"
+            CHANGED_NGINX="${{ needs.changes.outputs.nginx }}"
+            CHANGED_DATABASES="${{ needs.changes.outputs.databases }}"
+            CHANGED_MONITORING="${{ needs.changes.outputs.monitoring }}"
+
+            if [ "$FORCE_DEPLOY" = "true" ]; then
+              echo "🚀 Force deploy enabled - deploying all services"
+              CHANGED_NGINX="true"
+              CHANGED_DATABASES="true"
+              CHANGED_MONITORING="true"
+            fi
+
+            # Deploy nginx if changed
+            if [ "$CHANGED_NGINX" = "true" ]; then
+              deploy_service "nginx" "nginx"
+            fi
+
+            # Deploy databases if changed (only restart, no custom images)
+            if [ "$CHANGED_DATABASES" = "true" ]; then
+              echo "🗄️  Redeploying databases..."
+              cd databases
+              docker compose pull
+              docker compose up -d
+              cd ..
+            fi
+
+            # Deploy monitoring services if changed
+            if [ "$CHANGED_MONITORING" = "true" ]; then
+              # Pull all monitoring images first
+              cd monitoring
+              docker compose pull
+
+              # Deploy services individually with health checks
+              deploy_service "prometheus" "monitoring"
+              deploy_service "grafana" "monitoring"
+              deploy_service "loki" "monitoring"
+              deploy_service "promtail" "monitoring"
+              deploy_service "alertmanager" "monitoring"
+
+              # Deploy remaining services without custom images
+              docker compose up -d node-exporter cadvisor
+              cd ..
+            fi
+
+            # Final health check
+            echo "🏥 Running final health checks..."
+            sleep 10
+
+            # Check all containers are running
+            FAILED_CONTAINERS=$(docker ps -a --filter "name=infra_" --filter "status=exited" --format "{{.Names}}" || echo "")
+            if [ -n "$FAILED_CONTAINERS" ]; then
+              echo "❌ Some containers failed to start:"
+              echo "$FAILED_CONTAINERS"
+              exit 1
+            fi
+
+            # Cleanup
+            docker system prune -f
+
+            echo "✅ Infrastructure deployment complete!"
+            echo "📊 Running services:"
+            docker ps --filter "name=infra_" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+      - name: Deployment status notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Infrastructure deployment successful!"
+          else
+            echo "❌ Infrastructure deployment failed!"
+          fi

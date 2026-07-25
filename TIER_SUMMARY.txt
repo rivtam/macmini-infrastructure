@@ -1,0 +1,116 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    SERVICE TIER MANAGEMENT SYSTEM                         ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ TIER 1: ESSENTIAL (Always Required)                                      │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ● PostgreSQL      2.0 CPU    2GB RAM    Core database                   │
+│ ● Redis           1.0 CPU    512MB      Cache & sessions                │
+│ ● Nginx           1.0 CPU    512MB      Web gateway                     │
+├──────────────────────────────────────────────────────────────────────────┤
+│ TOTAL:            4.0 CPU    3GB RAM                                     │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ TIER 2: MONITORING (Visibility)                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ● Prometheus      1.0 CPU    1GB        Metrics collection              │
+│ ● Grafana         1.0 CPU    512MB      Dashboards                      │
+│ ● Node Exporter   0.5 CPU    128MB      Host metrics                    │
+├──────────────────────────────────────────────────────────────────────────┤
+│ TOTAL:            2.5 CPU    1.6GB RAM                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ TIER 3: ADVANCED MONITORING (Logs & Alerts)                              │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ● Loki            1.0 CPU    512MB      Log aggregation                 │
+│ ● Promtail        0.5 CPU    256MB      Log shipping                    │
+│ ● Alertmanager    0.5 CPU    256MB      Alert routing                   │
+│ ● cAdvisor        0.5 CPU    256MB      Container metrics               │
+├──────────────────────────────────────────────────────────────────────────┤
+│ TOTAL:            2.5 CPU    1.2GB RAM                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ TIER 4: OBSERVABILITY (Detailed Metrics)                                 │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ● PG Exporter     0.5 CPU    128MB      Database metrics                │
+│ ● Redis Exporter  0.5 CPU    128MB      Cache metrics                   │
+│ ● SSL Exporter    0.5 CPU    128MB      Certificate metrics             │
+├──────────────────────────────────────────────────────────────────────────┤
+│ TOTAL:            1.5 CPU    384MB RAM                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ TIER 5: SECURITY (Secrets & Audit)                                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ● Vault           0.5 CPU    256MB      Secrets management              │
+│ ● Certbot         minimal               SSL automation                  │
+│ ● Audit Processor 0.5 CPU    256MB      Compliance logging              │
+├──────────────────────────────────────────────────────────────────────────┤
+│ TOTAL:            1.0 CPU    512MB RAM                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ TIER 6: PERFORMANCE (Optimization)                                       │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ● PgBouncer       0.5 CPU    256MB      Connection pooling              │
+├──────────────────────────────────────────────────────────────────────────┤
+│ TOTAL:            0.5 CPU    256MB RAM                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                            PROFILE PRESETS                                ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────┬──────────┬──────────┬─────────────────────────────────────┐
+│ PROFILE     │ CPU      │ RAM      │ TIERS INCLUDED                      │
+├─────────────┼──────────┼──────────┼─────────────────────────────────────┤
+│ Minimal     │ 4.0      │ 3.0 GB   │ 1 (Essential)                       │
+│ Standard    │ 6.5      │ 4.6 GB   │ 1 + 2 (+ Monitoring)                │
+│ Production  │ ~9.0     │ ~6.0 GB  │ 1 + 2 + 4 + 5 + 6                   │
+│ Full        │ ~12.5    │ ~7.0 GB  │ All (1 + 2 + 3 + 4 + 5 + 6)         │
+└─────────────┴──────────┴──────────┴─────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         QUICK COMMANDS                                    ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Start a profile:
+  ./scripts/start-services.sh minimal
+  ./scripts/start-services.sh standard
+  ./scripts/start-services.sh production
+  ./scripts/start-services.sh full
+
+Toggle tiers:
+  ./scripts/toggle-tier.sh monitoring on
+  ./scripts/toggle-tier.sh advanced-monitoring off
+  ./scripts/toggle-tier.sh security on
+  ./scripts/toggle-tier.sh observability off
+  ./scripts/toggle-tier.sh performance on
+
+Check status:
+  ./scripts/service-status.sh
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                      STARTUP STAGE RECOMMENDATIONS                        ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+🌱 Bootstrapping (< $5k MRR)
+   → minimal profile (4 CPU, 3GB RAM)
+   → Focus on product, not infrastructure
+
+🚀 Early Traction ($5k - $20k MRR)
+   → standard profile (6.5 CPU, 4.6GB RAM)
+   → Add basic monitoring to catch issues
+
+📈 Growth ($20k - $100k MRR)
+   → production profile (9 CPU, 6GB RAM)
+   → Need security, performance, observability
+
+🏢 Scale ($100k+ MRR)
+   → full profile (12.5 CPU, 7GB RAM)
+   → Compliance, audit trails, max reliability
+
