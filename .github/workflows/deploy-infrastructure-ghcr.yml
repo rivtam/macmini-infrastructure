@@ -279,7 +279,7 @@ jobs:
             set -e
 
             # Create infrastructure directories
-            mkdir -p ~/prod/infrastructure/{nginx,databases,monitoring}
+            mkdir -p ~/prod/infrastructure/{nginx,databases,monitoring,certbot}
             cd ~/prod/infrastructure
 
             # Set GITHUB_REPOSITORY_OWNER for image names
@@ -316,6 +316,118 @@ jobs:
                 name: infra_network
                 external: true
             NGINX_COMPOSE
+
+            # Write certbot docker-compose.yml
+            cat > ~/prod/infrastructure/certbot/docker-compose.yml << 'CERTBOT_COMPOSE'
+            services:
+              certbot:
+                image: certbot/certbot:latest
+                container_name: infra_certbot
+                restart: "no"
+                volumes:
+                  - ./conf:/etc/letsencrypt
+                  - ./www:/var/www/certbot
+                  - ./logs:/var/log/letsencrypt
+                entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
+                networks:
+                  - infra_network
+                deploy:
+                  resources:
+                    limits:
+                      cpus: "0.25"
+                      memory: 128M
+                    reservations:
+                      cpus: "0.05"
+                      memory: 32M
+              certbot-exporter:
+                image: ghcr.io/ribbybibby/ssl-exporter:latest
+                container_name: infra_certbot_exporter
+                restart: unless-stopped
+                command:
+                  - --tls.insecure=true
+                  - --tls.cacert=/etc/ssl/certs/ca-certificates.crt
+                ports:
+                  - "9219:9219"
+                networks:
+                  - infra_network
+                deploy:
+                  resources:
+                    limits:
+                      cpus: "0.25"
+                      memory: 64M
+                    reservations:
+                      cpus: "0.05"
+                      memory: 16M
+            networks:
+              infra_network:
+                name: infra_network
+                external: true
+            CERTBOT_COMPOSE
+
+            # Write certbot init script
+            cat > ~/prod/infrastructure/certbot/init-letsencrypt.sh << 'CERTBOT_INIT'
+            #!/bin/bash
+            # Initialize Let's Encrypt certificates
+            set -e
+
+            DOMAIN="${DOMAIN:-edu-hub.duckdns.org}"
+            EMAIL="${LETSENCRYPT_EMAIL:-admin@${DOMAIN}}"
+            STAGING="${STAGING:-0}"
+
+            CERTBOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+            CONF_DIR="${CERTBOT_DIR}/conf"
+            WWW_DIR="${CERTBOT_DIR}/www"
+
+            echo "🔐 Initializing Let's Encrypt for ${DOMAIN}"
+            echo "📧 Email: ${EMAIL}"
+
+            mkdir -p "$CONF_DIR" "$WWW_DIR"
+
+            if [ -d "$CONF_DIR/live/$DOMAIN" ]; then
+              echo "✅ Certificate already exists"
+              exit 0
+            fi
+
+            STAGING_ARG=""
+            if [ "$STAGING" != "0" ]; then
+              echo "⚠️  Using staging environment"
+              STAGING_ARG="--staging"
+            fi
+
+            if ! docker ps | grep -q infra_nginx; then
+              echo "❌ nginx not running. Start it first: cd ../nginx && docker compose up -d"
+              exit 1
+            fi
+
+            echo "🔑 Obtaining certificate..."
+            docker run --rm \
+              --name certbot_init \
+              -v "$CONF_DIR:/etc/letsencrypt" \
+              -v "$WWW_DIR:/var/www/certbot" \
+              --network infra_network \
+              certbot/certbot \
+              certonly \
+              --webroot \
+              --webroot-path=/var/www/certbot \
+              --email "$EMAIL" \
+              --agree-tos \
+              --no-eff-email \
+              $STAGING_ARG \
+              -d "$DOMAIN"
+
+            if [ $? -eq 0 ]; then
+              echo "✅ Certificate obtained!"
+              cd "$CERTBOT_DIR"
+              docker compose up -d certbot
+              docker exec infra_nginx nginx -s reload
+              echo "✅ Setup complete!"
+            else
+              echo "❌ Failed to obtain certificate"
+              exit 1
+            fi
+            CERTBOT_INIT
+
+            chmod +x ~/prod/infrastructure/certbot/init-letsencrypt.sh
 
             # Write databases docker-compose.yml
             cat > ~/prod/infrastructure/databases/docker-compose.yml << 'DB_COMPOSE'
@@ -477,7 +589,7 @@ jobs:
             fi
 
             # Create necessary directories
-            mkdir -p ~/prod/infrastructure/{nginx/logs,certbot/conf,certbot/www}
+            mkdir -p ~/prod/infrastructure/{nginx/logs,certbot/conf,certbot/www,certbot/logs}
 
             # Create Docker network if it doesn't exist
             if ! docker network inspect infra_network >/dev/null 2>&1; then
