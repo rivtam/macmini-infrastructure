@@ -1,17 +1,9 @@
 # Custom Grafana with pre-provisioned dashboards and datasources
 FROM grafana/grafana:latest
 
-# Copy provisioning configs
-COPY grafana/dashboards /etc/grafana/provisioning/dashboards
-COPY grafana/datasources /etc/grafana/provisioning/datasources
-
-# Copy dashboard JSON files (if exists)
-# COPY grafana/dashboards/json /etc/grafana/provisioning/dashboards/json
-
-# Set permissions
-USER root
-RUN chown -R grafana:grafana /etc/grafana/provisioning
-USER grafana
+# Copy provisioning configs (grafana user already owns /etc/grafana)
+COPY --chown=grafana:grafana grafana/dashboards /etc/grafana/provisioning/dashboards
+COPY --chown=grafana:grafana grafana/datasources /etc/grafana/provisioning/datasources
 
 # Expose Grafana port
 EXPOSE 3000
