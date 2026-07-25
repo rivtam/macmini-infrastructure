@@ -307,10 +307,10 @@ jobs:
                   - infra_network
                 healthcheck:
                   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/healthz"]
-                  interval: 30s
-                  timeout: 3s
+                  interval: 10s
+                  timeout: 5s
                   retries: 3
-                  start_period: 5s
+                  start_period: 10s
             networks:
               infra_network:
                 name: infra_network
@@ -533,22 +533,26 @@ jobs:
               FINAL_STATUS=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$CONTAINER_NAME" 2>/dev/null || echo "missing")
 
               if [ "$FINAL_STATUS" != "healthy" ] && [ "$FINAL_STATUS" != "no-healthcheck" ]; then
-                echo "❌ $SERVICE failed health check!"
+                echo "❌ $SERVICE failed health check! Final status: $FINAL_STATUS"
                 echo "📋 Container logs:"
                 docker logs --tail=50 "$CONTAINER_NAME" || true
+
+                echo "🔍 Container inspect:"
+                docker inspect "$CONTAINER_NAME" | jq '.[]| {State: .State, Health: .State.Health}' || true
 
                 echo "🔍 Testing nginx configuration..."
                 docker exec "$CONTAINER_NAME" nginx -t || true
 
-                # Rollback using docker compose
-                if [ "$CURRENT_IMAGE" != "none" ]; then
-                  echo "🔄 Rolling back $SERVICE to previous image..."
-                  # Update docker-compose.yml to use old image temporarily
-                  sed -i.bak "s|image: ghcr.io/.*/${SERVICE}:latest|image: $CURRENT_IMAGE|g" docker-compose.yml
-                  docker compose up -d
-                  # Restore original compose file
-                  mv docker-compose.yml.bak docker-compose.yml
-                fi
+                echo "🔍 Testing health endpoint manually..."
+                docker exec "$CONTAINER_NAME" wget -O- http://localhost/healthz || true
+                docker exec "$CONTAINER_NAME" curl -v http://localhost/healthz || true
+
+                echo "🔍 Checking if nginx is listening..."
+                docker exec "$CONTAINER_NAME" netstat -tlnp || docker exec "$CONTAINER_NAME" ss -tlnp || true
+
+                # Skip rollback for now to keep container running for debugging
+                echo "⚠️  Keeping container running for debugging. Check logs on server."
+                echo "   To manually rollback: cd ~/prod/infrastructure/$SERVICE_DIR && docker compose down"
 
                 cd ~/prod/infrastructure
                 exit 1
