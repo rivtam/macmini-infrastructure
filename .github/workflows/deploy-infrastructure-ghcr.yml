@@ -537,12 +537,17 @@ jobs:
                 echo "📋 Container logs:"
                 docker logs --tail=50 "$CONTAINER_NAME" || true
 
-                # Rollback
+                echo "🔍 Testing nginx configuration..."
+                docker exec "$CONTAINER_NAME" nginx -t || true
+
+                # Rollback using docker compose
                 if [ "$CURRENT_IMAGE" != "none" ]; then
-                  echo "🔄 Rolling back $SERVICE..."
-                  docker stop "$CONTAINER_NAME" || true
-                  docker rm "$CONTAINER_NAME" || true
-                  docker run -d --name "$CONTAINER_NAME" "$CURRENT_IMAGE" || true
+                  echo "🔄 Rolling back $SERVICE to previous image..."
+                  # Update docker-compose.yml to use old image temporarily
+                  sed -i.bak "s|image: ghcr.io/.*/${SERVICE}:latest|image: $CURRENT_IMAGE|g" docker-compose.yml
+                  docker compose up -d
+                  # Restore original compose file
+                  mv docker-compose.yml.bak docker-compose.yml
                 fi
 
                 cd ~/prod/infrastructure

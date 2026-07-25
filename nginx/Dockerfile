@@ -8,14 +8,9 @@ COPY sites /etc/nginx/sites-enabled
 # Create log directory
 RUN mkdir -p /var/log/nginx
 
-# Add healthcheck endpoint
-RUN echo 'OK' > /usr/share/nginx/html/healthz
-
 # Expose ports
 EXPOSE 80 443
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/healthz || exit 1
+# Healthcheck is defined in docker-compose.yml
 
 CMD ["nginx", "-g", "daemon off;"]
