@@ -7,8 +7,7 @@ COPY loki/loki-config.yml /etc/loki/loki-config.yml
 # Expose Loki port
 EXPOSE 3100
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3100/ready || exit 1
+# Note: Healthcheck removed - Loki base image doesn't have wget/curl
+# Health monitoring can be done via Prometheus scraping /metrics
 
 CMD ["-config.file=/etc/loki/loki-config.yml"]
