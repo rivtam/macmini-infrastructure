@@ -2,11 +2,11 @@
 FROM grafana/grafana:latest
 
 # Copy provisioning configs
-COPY dashboards /etc/grafana/provisioning/dashboards
-COPY datasources /etc/grafana/provisioning/datasources
+COPY grafana/dashboards /etc/grafana/provisioning/dashboards
+COPY grafana/datasources /etc/grafana/provisioning/datasources
 
-# Copy dashboard JSON files
-COPY dashboards/json /etc/grafana/provisioning/dashboards/json
+# Copy dashboard JSON files (if exists)
+# COPY grafana/dashboards/json /etc/grafana/provisioning/dashboards/json
 
 # Set permissions
 USER root
